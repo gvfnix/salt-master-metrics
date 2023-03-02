@@ -1,0 +1,2 @@
+prometheus-client==0.16.0
+salt==3005.1
