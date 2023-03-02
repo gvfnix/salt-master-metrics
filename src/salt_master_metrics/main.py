@@ -6,6 +6,7 @@ log = logging.getLogger(__name__)
 import prometheus_client
 import metrics
 import event_listener
+import counters
 import os
 
 
@@ -31,7 +32,11 @@ def main(config: dict):
     listener = event_listener.connect(config)
     while True:
         event = listener.get_event(wait=5)
-        metrics.register_event(event)
+        registered_events = metrics.register_event(event)
+        counters.update_counters(
+            counters.counters,
+            registered_events
+        )
 
 if __name__ == "__main__":
     config = get_config()

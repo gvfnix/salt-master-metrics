@@ -13,5 +13,6 @@ Configuration parameters (environment variables):
 
 ## Metrics exposed
 
-* `salt_events_total{success}` - count of return events with
+* `salt_events_total{success}` - count of return events with success result
+* `salt_events_total{success, fun}` - count of return events with function label
 * `failure_event_created{minion, jid, fun, fun_args}` - timestamp when a failure return event was caught
