@@ -4,7 +4,7 @@ on:
     tags: ["v*"]
 jobs:
   build_wheel:
-    name: Build wheel
+    name: Create release
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -24,10 +24,11 @@ jobs:
           draft: false
           prerelease: false
       - name: Build
+        id: build
         run: |
           echo "Tag is ${{ github.ref_name}}"
           PYPROJECT_VERSION=$(echo ${{ github.ref_name }} | sed s?'^v\([0-9]*\.[0-9]*\.[0-9]\).*?\1?')
-          echo PYPROJECT_VERSION=${PYPROJECT_VERSION} > ${GITHUB_ENV}
+          echo pyproject_version=${PYPROJECT_VERSION} > ${GITHUB_OUTPUT}
           sed -i s'/version = ".*"/version = "'${PYPROJECT_VERSION}'"/' pyproject.toml
           python -m build
       - name: Upload Release Asset
@@ -37,8 +38,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.REPOSITORY_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/salt_master_metrics-${{ vars.PYPROJECT_VERSION }}-py2.py3-none-any.whl
-          asset_name: salt_master_metrics-${{ vars.PYPROJECT_VERSION }}-py2.py3-none-any.whl
+          asset_path: dist/salt_master_metrics-${{ steps.build.outputs.pyproject_version }}-py2.py3-none-any.whl
+          asset_name: salt_master_metrics-${{ steps.build.outputs.pyproject_version }}-py2.py3-none-any.whl
           asset_content_type: application/zip
 
       

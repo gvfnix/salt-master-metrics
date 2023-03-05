@@ -2,7 +2,7 @@ name: Test
 on: [pull_request]
 jobs:
   build_wheel:
-    name: Build wheel
+    name: Test
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
