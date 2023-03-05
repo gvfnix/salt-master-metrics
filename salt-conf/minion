@@ -1,2 +1,2 @@
 master: localhost
-root_dir: /tmp
+root_dir: /tmp/salt

@@ -13,9 +13,17 @@ readme = "README.md"
 requires-python = "=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache 2.0",
     "Operating System :: OS Independent",
+]
+dependencies = [
+    "salt",
+    "prometheus-client",
+    "environ-config",
 ]
 
 [project.urls]
 Homepage = "https://github.com/gvfnix/salt-master-metrics"
+
+[project.scripts]
+salt-master-metrics = "salt_master_metrics:main.main"

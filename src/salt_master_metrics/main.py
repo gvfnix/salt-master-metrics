@@ -1,43 +1,25 @@
-import logging
-import sys
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-log = logging.getLogger(__name__)
-
+import salt_master_metrics.global_logger
+import salt_master_metrics.config
+import salt_master_metrics.metrics
+import salt_master_metrics.event_listener
 import prometheus_client
-import metrics
-import event_listener
-import counters
-import os
 
 
-def get_config():
-    config = {
-        "listen_port": 2112,
-        "master_config_file": "/etc/salt/master"
-    }
-    listen_port = os.environ.get(
-        "SALT_MASTER_METRICS_LISTEN_PORT",
-        str(config["listen_port"])
-    )
-    config["master_config_file"] = os.environ.get(
-        "SALT_MASTER_METRICS_MASTER_CONFIG_FILE",
-        config["master_config_file"]
-    )
-    if listen_port.isdigit() :
-        config["listen_port"] = int(listen_port)
-    return config
+def ioloop(listener):
+    for event in listener.iter_events(full=True):
+        log.debug(f"Got event: {event}")
+        metrics.register_event(event)
 
-def main(config: dict):
-    prometheus_client.start_http_server(config["listen_port"])
-    listener = event_listener.connect(config)
-    while True:
-        event = listener.get_event(wait=5)
-        registered_events = metrics.register_event(event)
-        counters.update_counters(
-            counters.counters,
-            registered_events
-        )
+
+def main():
+    log = salt_master_metrics.global_logger.getLogger(__name__)
+    config = salt_master_metrics.config.get_config()
+    log.info("Start")
+    prometheus_client.start_http_server(config.listen_port)
+    listener = salt_master_metrics.event_listener.connect(config)
+    ioloop(listener)
+    return 0
+
 
 if __name__ == "__main__":
-    config = get_config()
-    main(config)
+    main()

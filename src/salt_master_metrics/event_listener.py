@@ -1,15 +1,15 @@
 import salt.utils.event
 import salt.config
-import logging
+from salt_master_metrics.config import AppConfig
 
-
-def connect(config: dict) -> salt.utils.event.MasterEvent:
-    log = logging.getLogger(__name__)
-    conf_file = config["master_config_file"]
-    master_opts = salt.config.master_config(conf_file)
-    listener = salt.utils.event.get_master_event(
-        master_opts,
-        master_opts["sock_dir"]
+def connect(config: AppConfig) -> salt.utils.event.MasterEvent:
+    conf_file = config.master_config_file
+    master_opts = salt.config.client_config(conf_file)
+    listener = salt.utils.event.get_event(
+        "master",
+        master_opts["sock_dir"],
+        master_opts["transport"],
+        opts=master_opts,
+        listen=True
     )
-    log.info("Connected to event bus")
     return listener
