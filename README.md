@@ -10,7 +10,7 @@ A daemon that listens for salt-server events and exposes metrics based on them.
 
 Install on the same machine (container) where salt-master runs.
 
-`python -m pip install ./salt_master_metrics-*.whl`
+`salt-pip -m pip install ./salt_master_metrics-*.whl`
 
 ## Run
 

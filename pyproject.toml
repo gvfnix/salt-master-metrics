@@ -26,4 +26,4 @@ dependencies = [
 Homepage = "https://github.com/gvfnix/salt-master-metrics"
 
 [project.scripts]
-salt-master-metrics = "salt_master_metrics:main.main"
+salt-master-metrics = "salt_master_metrics:main.run"
