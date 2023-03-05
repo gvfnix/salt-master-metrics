@@ -25,7 +25,7 @@ jobs:
           prerelease: false
       - name: Build
         run: |
-          PYPROJECT_VERSION=$(echo ${{ github.action_ref }} | tr -d 'v'
+          PYPROJECT_VERSION=$(echo ${{ github.action_ref }} | tr -d 'v')
           sed -i s'/version = ".*"/version = "'${PYPROJECT_VERSION}'"/' pyproject.toml
           python -m build
       - name: Upload Release Asset
