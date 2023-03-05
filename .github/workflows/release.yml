@@ -19,7 +19,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.REPOSITORY_TOKEN }}
         with:
-          tag_name: ${{ github.action_ref }}
+          tag_name: release/${{ github.action_ref }}
           release_name: Release ${{ github.action_ref }}
           draft: false
           prerelease: false
