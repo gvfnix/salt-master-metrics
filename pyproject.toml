@@ -1,0 +1,29 @@
+[build-system]
+requires = ["flit_core"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "salt-master-metrics"
+version = "1.0.0"
+authors = [
+    {name="gvfnix", email="gvfnix@gmail.com"},
+]
+description = "Metrics exporter for salt-master events"
+readme = "README.md"
+requires-python = "=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache 2.0",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "salt",
+    "prometheus-client",
+    "environ-config",
+]
+
+[project.urls]
+Homepage = "https://github.com/gvfnix/salt-master-metrics"
+
+[project.scripts]
+salt-master-metrics = "salt_master_metrics:main.main"

@@ -1,0 +1,2 @@
+root_dir: /tmp/salt
+presence_events: True
