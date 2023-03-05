@@ -7,11 +7,10 @@ import prometheus_client
 
 def ioloop(listener):
     for event in listener.iter_events(full=True):
-        log.debug(f"Got event: {event}")
-        metrics.register_event(event)
+        salt_master_metrics.metrics.register_event(event)
 
 
-def main():
+def run():
     log = salt_master_metrics.global_logger.getLogger(__name__)
     config = salt_master_metrics.config.get_config()
     log.info("Start")
@@ -19,7 +18,3 @@ def main():
     listener = salt_master_metrics.event_listener.connect(config)
     ioloop(listener)
     return 0
-
-
-if __name__ == "__main__":
-    main()

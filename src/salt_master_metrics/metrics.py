@@ -84,6 +84,7 @@ registrators = {
 
 
 def register_event(event, metrics=prometheus_metrics):
+    log.debug(f"Got event: {event}")
     if type(event) is not dict:
         log.debug("Event is not a dict, skipping")
         return
