@@ -26,7 +26,6 @@ jobs:
       - name: Build
         id: build
         run: |
-          echo "Tag is ${{ github.ref_name}}"
           PYPROJECT_VERSION=$(echo ${{ github.ref_name }} | sed s?'^v\([0-9]*\.[0-9]*\.[0-9]\).*?\1?')
           echo pyproject_version=${PYPROJECT_VERSION} > ${GITHUB_OUTPUT}
           sed -i s'/version = ".*"/version = "'${PYPROJECT_VERSION}'"/' pyproject.toml
