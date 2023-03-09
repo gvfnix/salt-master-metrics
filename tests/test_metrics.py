@@ -1,4 +1,5 @@
 import unittest.mock
+import datetime
 import salt_master_metrics.metrics
 
 class MetricMock(object):
@@ -243,3 +244,16 @@ class TestMetrics(unittest.TestCase):
         salt_master_metrics.metrics.register_pending_minions(event, gauge)
         assert gauge.get_value() == 0
         assert gauge.get_labels() == {}
+
+    def test_register_minion_ping(self):
+        ping1 = {"tag": "minion_ping", "data": {"id": "minion1"}}
+        ping2 = {"tag": "minion_ping", "data": {"id": "minion2"}}
+        presence = {"tag": "salt/presence/present", "data": {"present": ["salt-master"]}}
+        gauge = MetricMock("minions_connected")
+        salt_master_metrics.metrics.register_connected_minions(ping1, gauge)
+        salt_master_metrics.metrics.register_connected_minions(ping2, gauge)
+        salt_master_metrics.metrics.register_connected_minions(presence, gauge)
+        assert gauge.get_value() == 3
+        threshold = datetime.datetime.now() + datetime.timedelta(minutes=3)
+        salt_master_metrics.metrics.register_connected_minions(presence, gauge, threshold)
+        assert gauge.get_value() == 1
