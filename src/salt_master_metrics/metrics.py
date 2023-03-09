@@ -1,4 +1,5 @@
 import prometheus_client
+import datetime
 import salt_master_metrics.global_logger
 
 
@@ -6,6 +7,7 @@ log = salt_master_metrics.global_logger.getLogger(__name__)
 
 
 minions_pending = {}
+minions_ping = {}
 
 
 prometheus_metrics = {
@@ -14,7 +16,7 @@ prometheus_metrics = {
         "Total quantity of new jobs",
         ["fun"]
     ),
-    "minion_failed_job": prometheus_client.Counter(
+    "minion`_failed_job": prometheus_client.Counter(
         "salt_minion_failed_job",
         "Failed job events",
         ["minion", "fun", "jid"]
@@ -53,11 +55,18 @@ def register_failed_job(event, counter):
     log.debug(f"Register minion job failure with labels {labels}")
 
 
-def register_connected_minions(event, gauge):
+def register_connected_minions(event, gauge, threshold:datetime.datetime=datetime.datetime.now()):
     if event["tag"] == "salt/presence/present":
-        connected_minions = event["data"].get("present", [])
-        gauge.set(len(connected_minions))
-        log.debug("Update connected minions quantity")
+        present_minions = event["data"].get("present", [])
+        recent_pinged_minions = filter(
+            lambda item: threshold - item[1] < datetime.timedelta(seconds=90),
+            minions_ping.items()
+        )
+        gauge_value = len(present_minions) + len(dict(recent_pinged_minions))
+        gauge.set(gauge_value)
+    if event["tag"] == "minion_ping":
+        minion_id = event["data"]["id"]
+        minions_ping[minion_id] = datetime.datetime.now()
 
 
 def register_pending_minions(event, gauge):
