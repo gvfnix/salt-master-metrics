@@ -20,7 +20,7 @@ salt_master_function_call_count = prometheus_client.Counter(
 salt_master_job_failed = prometheus_client.Counter(
     "salt_master_job_failed",
     "Registered job failure",
-    ["fun", "minion", "jid"]
+    ["fun", "minion", "jid", "name", "comment", "sls"]
 )
 __minions_pending = {}
 __minions_ping = {}
@@ -44,20 +44,41 @@ def register_failed_job(data):
     labels = {
         "minion": data.get("id", ""),
         "fun": data.get("fun", ""),
-        "jid": data.get("jid", "")
+        "jid": data.get("jid", ""),
+        "name": "",
+        "comment": "",
+        "sls": "",
     }
-    salt_master_job_failed.labels(**labels).inc()
-    log.debug(f"Register minion job failure with labels {labels}")
-
+    _return = data.get("return", {})
+    if type(_return) is dict:
+        for k, _ret_data in _return.items():
+            result = _ret_data.get("result", True)
+            if not result:
+                labels["name"] = _ret_data.get("__id__", "")
+                labels["comment"] = _ret_data.get("comment", "")
+                labels["sls"] = _ret_data.get("__sls__", "")
+                salt_master_job_failed.labels(**labels).inc()
+                log.debug(f"Register minion job failure with labels {labels}")
+    elif type(_return) is list:
+        for comment in _return:
+            labels["comment"] = comment
+            salt_master_job_failed.labels(**labels).inc()
+            log.debug(f"Register minion job failure with labels {labels}")
+    elif type(_return) is str:
+        labels["comment"] = _return
+        salt_master_job_failed.labels(**labels).inc()
+        log.debug(f"Register minion job failure with labels {labels}")
 
 def register_presence(data: dict):
     present_minions = data.get("present", [])
     now = datetime.datetime.now()
-    recent_pinged_minions = filter(
-        lambda item: (now - item[1]) < datetime.timedelta(seconds=90),
-        __minions_ping.items()
-    )
-    _value = len(present_minions) + len(dict(recent_pinged_minions))
+    recent_pinged_minions = {
+        minion_id: ping_time for minion_id, ping_time in __minions_ping.items()
+        if (now - ping_time) < datetime.timedelta(seconds=90)
+    }
+    __minions_ping.clear()
+    __minions_ping.update(recent_pinged_minions)
+    _value = len(present_minions) + len(__minions_ping)
     salt_master_connected_minions_count.set(_value)
 
 
@@ -79,6 +100,16 @@ def register_authorization(data):
     salt_master_pending_minions_count.set(len(__minions_pending))
 
 
+def job_succeeded(data:dict):
+    success = data.get("success")
+    retcode = data.get("retcode")
+    log.debug(f"Success: {success}, retcode: {retcode}")
+    if success is None:
+        return (retcode == 0)
+    else:
+        return success
+
+
 def register_event(event):
     log.debug(f"Got event: {event}")
     tag = event.get("tag", "__notag__")
@@ -98,7 +129,7 @@ def register_event(event):
         register_ping(data)
     elif tag == "salt/auth":
         register_authorization(data)
-    elif "/ret/" in tag:
+    elif tag.startswith("salt/job") and "/ret/" in tag:
         register_function_call(data)
-        if not data.get("success", True):
+        if not job_succeeded(data):
             register_failed_job(data)

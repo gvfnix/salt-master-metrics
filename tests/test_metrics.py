@@ -118,7 +118,7 @@ class TestMetrics(TestCase):
         self.assertEqual(state_apply_count, 1.0)
         self.assertIsNone(state_apply_failed)
 
-    def test_job_return_failure(self):
+    def test_job_return_failure_dict(self):
         event = {
             'data': {
                 'cmd': '_return', 
@@ -128,7 +128,20 @@ class TestMetrics(TestCase):
                 'schedule': 'apply', 
                 'jid': '20230310030058447023', 
                 'pid': 298843, 
-                'return': {}, 
+                'return': {
+                    "state_1": {
+                        "result": True,
+                        "__sls__": "main",
+                        "__id__": "Working state",
+                        "comment": "All good",
+                    },
+                    "state_2": {
+                        "result": False,
+                        "__sls__": "main",
+                        "__id__": "Failed state",
+                        "comment": "Problem detected",
+                    },
+                }, 
                 'retcode': 0, 
                 'success': False, 
                 '_stamp': '2023-03-10T03:00:58.450041', 
@@ -144,16 +157,67 @@ class TestMetrics(TestCase):
             'salt_master_function_call_count_total',
             {"fun": "state.apply"}
         )
-        state_apply_failed =  REGISTRY.get_sample_value(
+        working_state_failure_count =  REGISTRY.get_sample_value(
             'salt_master_job_failed_total',
             {
                 "fun": "state.apply",
                 "jid": "20230310030058447023",
-                "minion": "minion_1"
+                "minion": "minion_1",
+                "name": "Working state",
+                "comment": "All good",
+                "sls": "main"
+            }
+        )
+        failed_state_failure_count =  REGISTRY.get_sample_value(
+            'salt_master_job_failed_total',
+            {
+                "fun": "state.apply",
+                "jid": "20230310030058447023",
+                "minion": "minion_1",
+                "name": "Failed state",
+                "comment": "Problem detected",
+                "sls": "main"
             }
         )
         self.assertEqual(state_apply_count, 1.0)
-        self.assertEqual(state_apply_failed, 1.0)
+        self.assertIsNone(working_state_failure_count)
+        self.assertEqual(failed_state_failure_count, 1.0)
+
+    def test_failed_job_return_str(self):
+        event = {
+            'data': 
+            {
+                'cmd': '_return', 
+                'id': 'minion_1', 
+                'success': False, 
+                'return': "ERROR executing 'file.replace': File not found: /a/b/c/d/e/f", 
+                'out': 'nested', 
+                'retcode': 1, 
+                'jid': '20230310111726726293', 
+                'fun': 'file.replace', 
+                'fun_args': ['/a/b/c/d/e/f', 'g', 'h'], 
+                '_stamp': '2023-03-10T11:17:26.808407'
+            }, 
+            'tag': 'salt/job/20230310111726726293/ret/minion_1'
+        }
+        metrics.register_event(event)
+        function_call_count = REGISTRY.get_sample_value(
+            "salt_master_function_call_count_total",
+            {"fun": "file.replace"}
+        )
+        self.assertEqual(function_call_count, 1.0)
+        failed_state_count = REGISTRY.get_sample_value(
+            "salt_master_job_failed_total",
+            {
+                "fun": "file.replace",
+                "jid": "20230310111726726293",
+                "minion": "minion_1",
+                "comment": "ERROR executing 'file.replace': File not found: /a/b/c/d/e/f",
+                "name": "",
+                "sls": ""
+            }
+        )
+        self.assertEqual(failed_state_count, 1.0)
 
     def test_nonregistered_event(self):
         event = {

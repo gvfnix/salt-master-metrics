@@ -24,7 +24,7 @@ Configuration parameters (environment variables, all with prefix `SALT_MASTER_ME
 
 ## Metrics exposed
 
-* `salt_new_jobs_total{fun}` - counter of new jobs.
-* `salt_minion_failed_job_created{jid, minion, fun}` - event of minion failed job.
-* `salt_minions_connected` - current quantity of minions connected. Requires [presence_events](https://docs.saltproject.io/en/latest/ref/configuration/master.html#presence-events) enabled in Salt master configuration, otherwise will be always 0.
-* `salt_minions_pending_auth` - current quanity of minions not accepted by master.
+* `salt_master_connected_minions_count` - Quantity of currently connected minions.
+* `salt_master_pending_minions_count` - Quantity of minions currently pending authorization.
+* `salt_master_function_call_count_total{fun="..."}` - How many times the function was called.
+* `salt_master_job_failed_total{fun="...",minion="...",jid="...",name="...",comment="...",sls="..."}` - Registered job failure. `name` label stands for name of the state, `sls` label shows which state file the state was called from.
