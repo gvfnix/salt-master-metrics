@@ -1,6 +1,7 @@
 import prometheus_client
 import datetime
 import salt_master_metrics.global_logger
+import json
 
 
 log = salt_master_metrics.global_logger.getLogger(__name__)
@@ -20,10 +21,11 @@ salt_master_function_call_count = prometheus_client.Counter(
 salt_master_job_failed = prometheus_client.Counter(
     "salt_master_job_failed",
     "Registered job failure",
-    ["fun", "minion", "jid", "name", "comment", "sls"]
+    ['comment', 'fun', 'jid', 'minion', 'name', 'sls']
 )
 __minions_pending = {}
 __minions_ping = {}
+__failures = {}
 
 
 def clear():
@@ -38,6 +40,38 @@ def clear():
 def register_function_call(data):
     fun = data.get("fun", "")
     salt_master_function_call_count.labels(fun=fun).inc()
+
+
+def older_than(timestamp: datetime.datetime, interval: datetime.timedelta) -> bool:
+    now = datetime.datetime.now()
+    timediff = now - timestamp
+    return timediff > interval
+
+
+def __cleanup_old_failures():
+    threshold = datetime.timedelta(minutes=3)
+    for labels_json, create_time in __failures.items():
+        if older_than(create_time, threshold):
+            labels = json.loads(labels_json)
+            label_values_sorted_by_key = [
+                item[1] for item in sorted(labels.items())
+            ]
+            salt_master_job_failed.remove(*label_values_sorted_by_key)
+    recent_failures = {
+        labels_json: create_time for labels_json, create_time in __failures.items()
+        if not older_than(create_time, threshold)
+    }
+    __failures.clear()
+    __failures.update(recent_failures)
+
+
+def __register_failure_with_datetime(labels: dict):
+    __cleanup_old_failures()
+    salt_master_job_failed.labels(**labels).inc()
+    log.debug(f"Register minion job failure with labels {labels}")
+    labels_json = json.dumps(labels)
+    now = datetime.datetime.now()
+    __failures[labels_json] = now
 
 
 def register_failed_job(data):
@@ -57,24 +91,22 @@ def register_failed_job(data):
                 labels["name"] = _ret_data.get("__id__", "")
                 labels["comment"] = _ret_data.get("comment", "")
                 labels["sls"] = _ret_data.get("__sls__", "")
-                salt_master_job_failed.labels(**labels).inc()
-                log.debug(f"Register minion job failure with labels {labels}")
+                __register_failure_with_datetime(labels)
     elif type(_return) is list:
         for comment in _return:
             labels["comment"] = comment
-            salt_master_job_failed.labels(**labels).inc()
-            log.debug(f"Register minion job failure with labels {labels}")
+            __register_failure_with_datetime(labels)
     elif type(_return) is str:
         labels["comment"] = _return
-        salt_master_job_failed.labels(**labels).inc()
-        log.debug(f"Register minion job failure with labels {labels}")
+        __register_failure_with_datetime(labels)
+
 
 def register_presence(data: dict):
     present_minions = data.get("present", [])
     now = datetime.datetime.now()
     recent_pinged_minions = {
         minion_id: ping_time for minion_id, ping_time in __minions_ping.items()
-        if (now - ping_time) < datetime.timedelta(seconds=90)
+        if not older_than(ping_time, datetime.timedelta(seconds=90))
     }
     __minions_ping.clear()
     __minions_ping.update(recent_pinged_minions)
@@ -94,20 +126,15 @@ def register_authorization(data):
     if action == "pend":
         __minions_pending[minion_id] = 1
         log.debug(f"Added {minion_id} as pending")
-    elif action == "accept"and minion_id in __minions_pending:
+    elif action == "accept" and minion_id in __minions_pending:
         del __minions_pending[minion_id]
         log.debug(f"Removed {minion_id} from pending")
     salt_master_pending_minions_count.set(len(__minions_pending))
 
 
-def job_succeeded(data:dict):
-    success = data.get("success")
-    retcode = data.get("retcode")
-    log.debug(f"Success: {success}, retcode: {retcode}")
-    if success is None:
-        return (retcode == 0)
-    else:
-        return success
+def job_succeeded(data: dict):
+    retcode = data.get("retcode", 0)
+    return retcode == 0
 
 
 def register_event(event):

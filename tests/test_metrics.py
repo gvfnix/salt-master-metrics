@@ -251,3 +251,82 @@ class TestMetrics(TestCase):
         self.assertIsNone(state_apply_count)
         self.assertIsNone(state_apply_failed)
 
+    def test_older_than(self):
+        three_mins_ago = datetime.now() - timedelta(minutes=3)
+        self.assertTrue(metrics.older_than(three_mins_ago, timedelta(minutes=1)))
+        self.assertFalse(metrics.older_than(three_mins_ago, timedelta(minutes=5)))
+
+    @mock.patch("salt_master_metrics.metrics.datetime")
+    def test_cleanup_failures(self, mock_datetime):
+        now = datetime.now()
+        mock_datetime.timedelta = timedelta
+        mock_datetime.datetime.now.return_value = now
+        failure1 = {
+            'data': 
+            {
+                'cmd': '_return', 
+                'id': 'minion_1', 
+                'success': False, 
+                'return': "ERROR executing 'file.replace': File not found: /mytest", 
+                'out': 'nested', 
+                'retcode': 1, 
+                'jid': '20230310111726726293', 
+                'fun': 'file.replace', 
+                'fun_args': ['/mytest', 'g', 'h'], 
+            }, 
+            'tag': 'salt/job/20230310111726726293/ret/minion_1'
+        }
+        metrics.register_event(failure1)
+        failure1_count = REGISTRY.get_sample_value(
+            "salt_master_job_failed_total",
+            {
+                "comment": "ERROR executing 'file.replace': File not found: /mytest",
+                "minion": "minion_1",
+                "jid": "20230310111726726293",
+                "fun": "file.replace",
+                "name": "",
+                "sls": "",
+            }
+        )
+        self.assertEqual(failure1_count, 1.0)
+        failure2 = {
+            'data': 
+            {
+                'cmd': '_return', 
+                'id': 'minion_1', 
+                'success': False, 
+                'return': "ERROR executing 'file.replace': File not found: /mytest", 
+                'out': 'nested', 
+                'retcode': 1, 
+                'jid': '20230310111726726294', 
+                'fun': 'file.replace', 
+                'fun_args': ['/mytest', 'g', 'h'], 
+            }, 
+            'tag': 'salt/job/20230310111726726294/ret/minion_1'
+        }
+        mock_datetime.datetime.now.return_value = now + timedelta(minutes=5)
+        metrics.register_event(failure2)
+        failure1_count = REGISTRY.get_sample_value(
+            "salt_master_job_failed_total",
+            {
+                "comment": "ERROR executing 'file.replace': File not found: /mytest",
+                "minion": "minion_1",
+                "jid": "20230310111726726293",
+                "fun": "file.replace",
+                "name": "",
+                "sls": "",
+            }
+        )
+        failure2_count = REGISTRY.get_sample_value(
+            "salt_master_job_failed_total",
+            {
+                "comment": "ERROR executing 'file.replace': File not found: /mytest",
+                "minion": "minion_1",
+                "jid": "20230310111726726294",
+                "fun": "file.replace",
+                "name": "",
+                "sls": "",
+            }
+        )
+        self.assertIsNone(failure1_count)
+        self.assertEqual(failure2_count, 1.0)
