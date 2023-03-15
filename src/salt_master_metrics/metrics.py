@@ -1,17 +1,16 @@
 import prometheus_client
 import datetime
-import salt_master_metrics.global_logger
+from salt_master_metrics import global_logger, config
 import json
 
 
-log = salt_master_metrics.global_logger.getLogger(__name__)
-salt_master_connected_minions_count = prometheus_client.Gauge(
-    "salt_master_connected_minions_count",
-    "Quantity of currently connected minions"
-)
-salt_master_pending_minions_count = prometheus_client.Gauge(
-    "salt_master_pending_minions_count",
-    "Quantity of minions currently pending authorization"
+log = global_logger.getLogger(__name__)
+conf = config.get_config()
+
+salt_master_minions_count = prometheus_client.Gauge(
+    "salt_master_minions_count",
+    "Quantity of minions",
+    ["state"]
 )
 salt_master_function_call_count = prometheus_client.Counter(
     "salt_master_function_call_count",
@@ -31,8 +30,7 @@ __failures = {}
 def clear():
     __minions_pending = {}
     __minions_ping = {}
-    salt_master_connected_minions_count.set(0)
-    salt_master_pending_minions_count.set(0)
+    salt_master_minions_count.clear()
     salt_master_function_call_count.clear()
     salt_master_job_failed.clear()
 
@@ -48,8 +46,17 @@ def older_than(timestamp: datetime.datetime, interval: datetime.timedelta) -> bo
     return timediff > interval
 
 
+def clear_old(_dict: dict, threshold: datetime.timedelta):
+    recents = {
+        key: timestamp for key, timestamp in _dict.items()
+        if not older_than(timestamp, threshold)
+    }
+    _dict.clear()
+    _dict.update(recents)
+
+
 def __cleanup_old_failures():
-    threshold = datetime.timedelta(minutes=3)
+    threshold = conf.failure_event_retention_interval
     for labels_json, create_time in __failures.items():
         if older_than(create_time, threshold):
             labels = json.loads(labels_json)
@@ -57,12 +64,7 @@ def __cleanup_old_failures():
                 item[1] for item in sorted(labels.items())
             ]
             salt_master_job_failed.remove(*label_values_sorted_by_key)
-    recent_failures = {
-        labels_json: create_time for labels_json, create_time in __failures.items()
-        if not older_than(create_time, threshold)
-    }
-    __failures.clear()
-    __failures.update(recent_failures)
+    clear_old(__failures, threshold)
 
 
 def __register_failure_with_datetime(labels: dict):
@@ -104,14 +106,16 @@ def register_failed_job(data):
 def register_presence(data: dict):
     present_minions = data.get("present", [])
     now = datetime.datetime.now()
-    recent_pinged_minions = {
-        minion_id: ping_time for minion_id, ping_time in __minions_ping.items()
-        if not older_than(ping_time, datetime.timedelta(seconds=90))
-    }
-    __minions_ping.clear()
-    __minions_ping.update(recent_pinged_minions)
+    threshold = conf.minion_ping_timeout
+    clear_old(__minions_ping, threshold)
+    clear_old(__minions_pending, threshold)
     _value = len(present_minions) + len(__minions_ping)
-    salt_master_connected_minions_count.set(_value)
+    salt_master_minions_count.labels(
+        state="connected"
+    ).set(_value)
+    salt_master_minions_count.labels(
+        state="pending"
+    ).set(len(__minions_pending))
 
 
 def register_ping(data: dict):
@@ -124,12 +128,12 @@ def register_authorization(data):
     minion_id = data.get("id", "")
     action = data.get("act", "")
     if action == "pend":
-        __minions_pending[minion_id] = 1
+        __minions_pending[minion_id] = datetime.datetime.now()
         log.debug(f"Added {minion_id} as pending")
     elif action == "accept" and minion_id in __minions_pending:
         del __minions_pending[minion_id]
         log.debug(f"Removed {minion_id} from pending")
-    salt_master_pending_minions_count.set(len(__minions_pending))
+    salt_master_minions_count.labels("pending").set(len(__minions_pending))
 
 
 def job_succeeded(data: dict):
