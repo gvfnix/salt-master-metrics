@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ $SALT_MASTER_METRICS_ENABLE -eq 1 ]; then
+/opt/saltstack/salt/extras-3.10/bin/salt-master-metrics
+else
+sleep infinity
+fi

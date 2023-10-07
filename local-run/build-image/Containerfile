@@ -1,0 +1,19 @@
+FROM registry.docker.com/library/ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SALT_MASTER_ENABLE=0
+ENV SALT_MASTER_METRICS_ENABLE=0
+ARG SALT_MASTER_METRICS_PACKAGE
+COPY runit/ /etc/runit/runsvdir/current
+COPY ${SALT_MASTER_METRICS_PACKAGE} /tmp
+RUN true &&\
+  apt update &&\
+  apt install -y curl &&\
+  curl -fsSL -o /etc/apt/keyrings/salt-archive-keyring-2023.gpg https://repo.saltproject.io/salt/py3/ubuntu/22.04/amd64/SALT-PROJECT-GPG-PUBKEY-2023.gpg &&\
+  echo "deb [signed-by=/etc/apt/keyrings/salt-archive-keyring-2023.gpg arch=amd64] https://repo.saltproject.io/salt/py3/ubuntu/22.04/amd64/latest jammy main" | tee /etc/apt/sources.list.d/salt.list &&\
+  apt update &&\
+  apt install -y salt-master=3006.3 salt-minion=3006.3 runit=2.1.2-44ubuntu2 &&\
+  salt-pip install /tmp/${SALT_MASTER_METRICS_PACKAGE} &&\
+  rm -rf /tmp/${SALT_MASTER_METRICS_PACKAGE} &&\
+  true
+ENTRYPOINT [ "/usr/bin/runsvdir" ]
+CMD [ "/etc/service" ]

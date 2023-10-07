@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ $SALT_MASTER_ENABLE -eq 1 ]; then
+salt-master
+else
+sleep infinity
+fi

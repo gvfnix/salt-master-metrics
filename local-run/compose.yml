@@ -1,0 +1,18 @@
+version: "3.6"
+services:
+  salt-master:
+    container_name: salt-master
+    hostname: salt-master
+    build: ./build-image
+    environment:
+      - SALT_MASTER_ENABLE=1
+      - SALT_MASTER_METRICS_ENABLE=1
+      - SALT_MASTER_METRICS_LOG_LEVEL=DEBUG
+    networks: [ salt ]
+  salt-minion:
+    container_name: salt-minion
+    hostname: salt-minion
+    build: ./build-image
+    networks: [ salt ]
+networks:
+  salt: {}

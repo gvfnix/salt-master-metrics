@@ -1,5 +1,0 @@
-root_dir: /tmp/salt
-presence_events: True
-file_roots:
-  base:
-    - /tmp/salt/srv/salt

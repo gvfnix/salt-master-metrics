@@ -4,17 +4,17 @@ A daemon that listens for salt-server events and exposes metrics based on them.
 ## Build
 
 * `pip install build`
-* `python3.9 -m build`
+* `python3 -m build`
 
 ## Install
 
 Install on the same machine (container) where salt-master runs.
 
-`salt-pip -m pip install ./salt_master_metrics-*.whl`
+`salt-pip install ./salt_master_metrics-*.whl`
 
 ## Run
 
-`/opt/saltstack/salt/pypath/bin/salt-master-metrics`
+For salt 3006.3: `/opt/saltstack/salt/extras-3.10/bin/salt-master-metrics`
 
 Configuration parameters (environment variables, all with prefix `SALT_MASTER_METRICS_`):
 

@@ -1,6 +1,0 @@
-master: localhost
-root_dir: /tmp/salt
-# schedule:
-#   converge:
-#     function: state.apply
-#     seconds: 30
